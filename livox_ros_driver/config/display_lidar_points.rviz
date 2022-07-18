@@ -111,7 +111,7 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Class: rviz/Orbit
+      Class: rviz/TopDownOrtho
       Distance: 25.80008888244629
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
@@ -129,10 +129,10 @@ Visualization Manager:
       Near Clip Distance: 0.009999999776482582
       Pitch: 0.5597995519638062
       Target Frame: <Fixed Frame>
-      Value: Orbit (rviz)
+      Value: TopDownOrtho (rviz)
       Yaw: 3.065610408782959
     Saved:
-      - Class: rviz/Orbit
+      - Class: rviz/TopDownOrtho
         Distance: 10
         Enable Stereo Rendering:
           Stereo Eye Separation: 0.05999999865889549
@@ -146,11 +146,11 @@ Visualization Manager:
         Focal Shape Fixed Size: true
         Focal Shape Size: 0.05000000074505806
         Invert Z Axis: false
-        Name: Orbit
+        Name: TopDownOrtho
         Near Clip Distance: 0.009999999776482582
         Pitch: 1.1103999614715576
         Target Frame: <Fixed Frame>
-        Value: Orbit (rviz)
+        Value: TopDownOrtho (rviz)
         Yaw: 0.5703970193862915
 Window Geometry:
   Displays:
