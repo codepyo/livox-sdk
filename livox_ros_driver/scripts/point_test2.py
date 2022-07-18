@@ -398,7 +398,6 @@ class rpScanReceiver():
     def callback(self, input_ros_msg):
         cloud = ros_to_pcl(input_ros_msg)
         
-        
         #cloud_arr, cloud = convert_pc_msg_to_np(input_ros_msg)
         num = cloud.size
         print("before downsampling:", cloud)
