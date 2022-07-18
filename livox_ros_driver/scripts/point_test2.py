@@ -403,12 +403,12 @@ class rpScanReceiver():
         print("before downsampling:", cloud)
         
         ##  --------------------------------------- downsampling  -------------------------##
-        LEAF_SIZE = 0.05
+        LEAF_SIZE = 0.2
         cloud = self.do_voxel_grid_downssampling(cloud, LEAF_SIZE)
         print("after downsampling:", cloud)
         print("")
         
-        
+        #
         
         cloud = self.do_passthrough(cloud, 'x', 1.0, 20.0)
         cloud = self.do_passthrough(cloud, 'y', -7.0, 5.5)
