@@ -109,15 +109,15 @@ def getMarkerWindow(x,y,z,r,g,b):
 	# myMarker.pose.position.x = x
 	# myMarker.pose.position.y = y
 	myMarker.points.append(Point(x,y,z))
-	q = quaternion_from_euler(1.57, 0, 0)
-	myMarker.pose.orientation.x=0
-	myMarker.pose.orientation.y=0
-	myMarker.pose.orientation.z=0
-	myMarker.pose.orientation.w=1
+	q = quaternion_from_euler(0, 0, 0)
+	myMarker.pose.orientation.x= q[0]
+	myMarker.pose.orientation.y= q[1]
+	myMarker.pose.orientation.z= q[2]
+	myMarker.pose.orientation.w= 1
 	# myMarker.mesh_resource = "package://project/models/window_buena.stl"
 	myMarker.color.r, myMarker.color.g, myMarker.color.b , myMarker.color.a= r,g,b,1
-	myMarker.scale.x = 1
-	myMarker.scale.y = 1
+	myMarker.scale.x = 1.5
+	myMarker.scale.y = 4
 	myMarker.scale.z = 0
 
 	return myMarker
@@ -132,7 +132,8 @@ class rpScanReceiver():
         self.sub = rospy.Subscriber('/livox/lidar', PointCloud2, self.callback)
         self.sub = rospy.Subscriber('/livox/imu', Imu, self.callbackImu)
         
-        self.pub1 = rospy.Publisher('/marker', Marker, queue_size=1)
+        self.pub1 = rospy.Publisher('/marker1', Marker, queue_size=1)
+        self.pub2 = rospy.Publisher('/marker2', Marker, queue_size=1)
         self.pub = rospy.Publisher("/out", PointCloud2, queue_size=1)
         rospy.spin()
     
@@ -163,7 +164,7 @@ class rpScanReceiver():
         outliers = point_cloud.extract(indices, negative=True)
 
         return indices, inliers, outliers
-
+ 
     ## calculate theta to rotate data ##
     def callbackImu(self, input_ros_msg):
         global theta_y_trans
@@ -184,9 +185,11 @@ class rpScanReceiver():
         #theta_y = math.acos(y/g)
         #theta_z = math.acos(z/g)
 
-        #theta rotate by y axis
-        theta_y_trans = math.acos(-z/math.sqrt(x*x + z*z))
-        theta_x_trans = -1 * math.acos(math.sqrt(x*x+z*z)/g)
+        
+        #theta rotate by y axis 
+        theta_y_trans = (theta_y_trans * 99 + math.acos(-z/math.sqrt(x*x + z*z))) / 100
+        #theta rotate by x axis
+        theta_x_trans = (theta_x_trans * 99 + -1 * math.acos(math.sqrt(x*x+z*z)/g)) / 100
 
         #print("y_axis rotation : ", theta_y_trans * 57.29577951308232, " // x_axis rotation : ", theta_x_trans * 57.29577951308232)
         
@@ -279,11 +282,13 @@ class rpScanReceiver():
         else:
             print("1 is empty!")
         if count_2 > 10:
-            self.pub1.publish(getMarkerWindow(5.1, 5, -1.4, 1,1,1))
             print("2 is not empty")
+            self.pub1.publish(getMarkerWindow(5, 3.5, -1.4, 0,0,1))
+            # self.pub2.publish(getMarkerWindow(8, 4, -1.4, 0,0,1))
         else:
-            self.pub1.publish(getMarkerWindow(5.1, 5, -1.4, 1,1,0))
             print("2 is empty!")
+            self.pub1.publish(getMarkerWindow(5, 3.5, -1.4, 1,0,0))
+            # self.pub2.publish(getMarkerWindow(8, 4, -1.4, 1,0,0))
         
         ## --------------- perception --------------------##
         
