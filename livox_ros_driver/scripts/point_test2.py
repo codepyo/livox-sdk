@@ -11,6 +11,7 @@ import ctypes
 import rospy
 import rospkg
 import copy
+from sensor_msgs import point_cloud2
 from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs.msg import Imu
 import sensor_msgs.point_cloud2 as pc2
@@ -57,11 +58,11 @@ def ros_to_pcl(ros_cloud):
     color_list = []
 
     for data in pc2.read_points(ros_cloud, skip_nans=True):
-        points_list.append([data[0], data[1], data[2], data[3]])
+        points_list.append([data[0], data[1], data[2]])
         
         #color_list = float_to_rgb(data[3])
 
-    pcl_data = pcl.PointCloud_PointXYZI()
+    pcl_data = pcl.PointCloud()
     pcl_data.from_list(points_list)
 
     return pcl_data
@@ -147,7 +148,7 @@ def XYZRGB_to_XYZ(XYZRGB_cloud):
 # Returns a list of randomized colors
 def get_color_list(cluster_count):
     if (cluster_count > len(get_color_list.color_list)):
-        for i in xrange(len(get_color_list.color_list), cluster_count):
+        for i in range(len(get_color_list.color_list), cluster_count):
             get_color_list.color_list.append(random_color_gen())
     return get_color_list.color_list
 
@@ -189,35 +190,72 @@ def array_to_pointcloud2(cloud_arr, stamp=None, frame_id=None):
     '''Converts a numpy record array to a sensor_msgs.msg.PointCloud2.
     '''
     # make it 2d (even if height will be 1)
-    cloud_arr = np.atleast_2d(cloud_arr)
+    # cloud_arr = np.atleast_2d(cloud_arr)
 
-    cloud_msg = PointCloud2()
+    # cloud_msg = PointCloud2()
 
-    if stamp is not None:
-        cloud_msg.header.stamp = stamp
-    if frame_id is not None:
-        cloud_msg.header.frame_id = frame_id
-    cloud_msg.height = cloud_arr.shape[0]
-    cloud_msg.width = cloud_arr.shape[1]
-    cloud_msg.fields.append(PointField(
-                            name="x",
-                            offset=0,
-                            datatype=PointField.FLOAT32, count=1))
-    cloud_msg.fields.append(PointField(
-                            name="y",
-                            offset=4,
-                            datatype=PointField.FLOAT32, count=1))
-    cloud_msg.fields.append(PointField(
-                            name="z",
-                            offset=8,
-                            datatype=PointField.FLOAT32, count=1))
-    cloud_msg.is_bigendian = False # assumption
-    cloud_msg.point_step = 4
-    print(cloud_arr.shape[1])
-    cloud_msg.row_step = cloud_msg.point_step*cloud_arr.shape[1]
-    cloud_msg.is_dense = False
-    cloud_msg.data = cloud_arr.tostring()
-    return cloud_msg 
+    # if stamp is not None:
+    #     cloud_msg.header.stamp = stamp
+    # if frame_id is not None:
+    #     cloud_msg.header.frame_id = frame_id
+    
+    # #cloud_msg.height = cloud_arr.shape[0]
+    # #cloud_msg.width = cloud_arr.shape[1]
+    # cloud_msg.height = 1
+    # cloud_msg.width = cloud_arr.size
+    # cloud_msg.fields.append(PointField(
+    #                         name="x",
+    #                         offset=0,
+    #                         datatype=PointField.FLOAT32, count=1))
+    # cloud_msg.fields.append(PointField(
+    #                         name="y",
+    #                         offset=4,
+    #                         datatype=PointField.FLOAT32, count=1))
+    # cloud_msg.fields.append(PointField(
+    #                         name="z",
+    #                         offset=8,
+    #                         datatype=PointField.FLOAT32, count=1))
+    
+    # cloud_msg.is_bigendian = False # assumption
+    # cloud_msg.point_step = 4
+
+    # cloud_msg.row_step = cloud_msg.point_step*cloud_msg.width
+    # cloud_msg.is_dense = False
+    # cloud_msg.data = cloud_arr.tostring()
+    # return cloud_msg 
+
+    # ----------------------------------------------------------------------------------------
+    points = []
+    
+    for i in range(cloud_arr.shape[0]):
+        # for j in range(cloud_arr.size):
+        #     for k in range(cloud_arr.size):
+                
+                x = cloud_arr[i][0]
+                y = cloud_arr[i][1]
+                z = cloud_arr[i][2]
+                pt = [x,y,z,0]
+                r = 0
+                g = 0
+                b = 0
+                a = 255
+                rgb = struct.unpack('I', struct.pack('BBBB',b, g, r, a))[0]
+                pt[3] = rgb
+                points.append(pt)
+    
+    fields = [PointField('x', 0, PointField.FLOAT32, 1),
+              PointField('y', 4, PointField.FLOAT32, 1),
+              PointField('z', 8, PointField.FLOAT32, 1),
+              PointField('rgb', 16, PointField.UINT32, 1)
+            ]
+    header = Header()
+    header.stamp = rospy.Time.now()
+    header.frame_id = "output"
+    pc2 = point_cloud2.create_cloud(header, fields, points)
+    
+    return pc2
+
+
 
 def fields_to_dtype(fields, point_step):
     '''Convert a list of PointFields to a numpy record datatype.
@@ -277,6 +315,20 @@ def convert_pc_msg_to_np(pc_msg):
     pc_np = ros_numpy.point_cloud2.pointcloud2_to_xyz_array(pc_msg, remove_nans=True)
     pc_pcl = pcl.PointCloud(np.array(pc_np, dtype=np.float32))
     return pc_np, pc_pcl  # point cloud in numpy and pcl format
+
+def do_passthrough(pcl_data,filter_axis,axis_min,axis_max):
+    '''
+    Create a PassThrough  object and assigns a filter axis and range.
+    :param pcl_data: point could data subscriber
+    :param filter_axis: filter axis
+    :param axis_min: Minimum  axis to the passthrough filter object
+    :param axis_max: Maximum axis to the passthrough filter object
+    :return: passthrough on point cloud
+    '''
+    passthrough = pcl_data.make_passthrough_filter()
+    passthrough.set_filter_field_name(filter_axis)
+    passthrough.set_filter_limits(axis_min, axis_max)
+    return passthrough.filter()
 #----------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -289,7 +341,7 @@ class rpScanReceiver():
         self.sub = rospy.Subscriber('/livox/lidar', PointCloud2, self.callback)
         self.sub = rospy.Subscriber('/livox/imu', Imu, self.callbackImu)
         
-        self.pub = rospy.Publisher("/output", PointCloud2, queue_size=1)
+        self.pub = rospy.Publisher("/out", PointCloud2, queue_size=1)
         rospy.spin()
     
     
@@ -387,7 +439,7 @@ class rpScanReceiver():
 
         #theta rotate by y axis
         theta_y_trans = math.acos(-z/math.sqrt(x*x + z*z))
-        theta_x_trans = math.acos(math.sqrt(x*x+z*z)/g)
+        theta_x_trans = -1 * math.acos(math.sqrt(x*x+z*z)/g)
 
         #print("y_axis rotation : ", theta_y_trans * 57.29577951308232, " // x_axis rotation : ", theta_x_trans * 57.29577951308232)
     
@@ -407,8 +459,24 @@ class rpScanReceiver():
         cloud = self.do_voxel_grid_downssampling(cloud, LEAF_SIZE)
         print("after downsampling:", cloud)
         print("")
+
+        ##  -----------------Statistical Outlier Removal ---------------##
+        filter_axis = 'x'
+        axis_min = 0.0
+        axis_max = 100.0
+        cloud = do_passthrough(cloud, filter_axis, axis_min, axis_max)
+
+        filter_axis = 'y'
+        axis_min = -10.0
+        axis_max = 10.0
+        cloud = do_passthrough(cloud, filter_axis, axis_min, axis_max)
+
+        filter_axis = 'z'
+        axis_min = -2.0
+        axis_max = 2.0
+        cloud = do_passthrough(cloud, filter_axis, axis_min, axis_max)
         
-        #
+        ##  ----------------- Statistical Outlier Removal ---------------##
         
         cloud = self.do_passthrough(cloud, 'x', 1.0, 20.0)
         cloud = self.do_passthrough(cloud, 'y', -7.0, 5.5)
@@ -422,18 +490,15 @@ class rpScanReceiver():
         #theta_x_trans : pitch
         global theta_y_trans
         global theta_x_trans
-        
-        #cloud_arr = cloud.to_array()
-        
-        
+
         ## yaw(y-axis) rotate
-        for point in range(floor.size):
+        for point in range(cloud.size):
             x = cloud_arr[point][0]
             z = cloud_arr[point][2]
         
             cloud_arr[point][0] = math.cos(theta_y_trans) * x + math.sin(theta_y_trans) * z
             cloud_arr[point][2] = -1 * math.sin(theta_y_trans) * x + math.cos(theta_y_trans) * z
-   
+            #print(x, z, cloud_arr[point][0], cloud_arr[point][1])
         #print("point 1 - y axis rotate : ", cloud_arr[1])
         
         ## pitch(x-axis) rotate
@@ -443,25 +508,41 @@ class rpScanReceiver():
             
             cloud_arr[point][1] = (math.cos(theta_x_trans) * y) - (math.sin(theta_x_trans) * z)
             cloud_arr[point][2] = (math.sin(theta_x_trans) * y) + (math.cos(theta_x_trans) * z)
-
-        #cloud.from_array(cloud_arr)
-        #for point in range(cloud.size):
-            # x = cloud_arr[point][0]
-            # y = cloud_arr[point][1]
-            # z = cloud_arr[point][2]
-            
-            # if x > 10 or y > 10 or z > 10:
-            #     cloud_arr[point][0] = 0
-            #     cloud_arr[point][1] = 0
-            #     cloud_arr[point][2] = 0
-        
-        
-        #print("theta_x : " , theta_x_trans)
-        #print("------------------------------------------")
-        
-        
         ##------------------------------------ rotate data -----------------------------------------------------##
         
+        
+        ## --------------- perception --------------------##
+        count_1 = 0
+        count_2 = 0
+        #cloud.from_array(cloud_arr)
+        for point in range(cloud.size):
+            x = cloud_arr[point][0]
+            y = cloud_arr[point][1]
+            z = cloud_arr[point][2]
+            
+            if z > 0.6:
+                 cloud_arr[point][0] = 0
+                 cloud_arr[point][1] = 0
+                 cloud_arr[point][2] = 0
+            
+            if x > 6.5 and x < 7.7 and y > 1.3 and y < 5 and z > -1.2 and z < 0.4:
+                count_1 += 1
+            if x > 3.8 and x < 5.8 and y > 1.3 and y < 5 and z > -1.2 and z < 0.4:
+                count_2 += 1
+                            
+        if count_1 > 10:
+            print("1 is not empty")
+        else:
+            print("1 is empty!")
+        if count_2 > 10:
+            print("2 is not empty")
+        else:
+            print("2 is empty!")
+        
+        ## --------------- perception --------------------##
+        
+        
+       
         ##  --------------------------------------- floor trash  -------------------------##
         
         #pcl.save(cloud,"pcdex.pcd")
@@ -480,17 +561,6 @@ class rpScanReceiver():
         #test1 = o3d.io.read_point_cloud("livox_horizon_floor2.pcd")
         #o3d.visualization.draw_geometries([test1])
         
-        print("-------------------")
-        print(cloud[1])
-        print(cloud[cloud.size -1 ])
-        print("-------------------")
-        
-        #print("point 1 fin : ", floor[1])
-        #print("point 2 fin : ", floor[1000])
-        #print("point 3 fin : ", floor[2000])
-        #print("point 4 fin : ", floor[floor.size -1])
-        
-        
         # pcl.save(cloud,"livox_horizon.pcd")
         # pcl.save(cloud,"lanedetection.pcd")
         
@@ -504,14 +574,17 @@ class rpScanReceiver():
         
         # pcl.save(cluster_cloud,"livox_horizon.pcd")
         
+        
+        
+        
         #out_msg = PointCloud2()
         #PCL을 ROS 메시지로 변경
         #out_msg = pcl_to_ros(cloud)
         #out_msg = array_to_pointcloud2(cloud_arr, stamp=rospy.Time.now(), frame_id='livox_output')   
-        cloud_arr = cloud.to_array()
         tmp_msg = PointCloud2()
         #tmp_msg = pcl_to_ros(floor)
-        tmp_msg = array_to_pointcloud2(cloud_arr, rospy.Time.now(), frame_id='livox_output')
+        tmp_msg = array_to_pointcloud2(cloud_arr, rospy.Time.now(), frame_id='output')
+        #tmp_arr = ros_to_pcl(tmp_msg)
         self.pub.publish(tmp_msg)
 
 #------------------------------main---------------------------------
