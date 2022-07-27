@@ -1,0 +1,38 @@
+{
+  "registration" : {
+    "username" : "wlogs_kor_device_registration",
+    "password" : "zMbuqeL5e68xXCBf",
+    "host" : "mqtt.wlogs.watchmile.com",
+    "port" : 1883
+  },
+  "login" : {
+    "username" : "wlogs_kor_device_auth",
+    "password" : "ajE4gBF22QbBVTbU",
+    "host" : "mqtt.wlogs.watchmile.com",
+    "port" : 8883
+  },
+  "sensers" : {
+    "username" : "wlogs_kor_device_service",
+    "password" : "ymR443MT5YYjE5KJ",
+    "host" : "mqtt.wlogs.watchmile.com",
+    "port" : 8883
+  },
+  "reflash" : {
+    "username" : "wlogs_kor_device_service",
+    "password" : "",
+    "host" : "mqtt.wlogs.watchmile.com",
+    "port" : 8883
+  },
+  "log" : {
+    "username" : "wlogs_kor_device_service",
+    "password" : "",
+    "host" : "mqtt.wlogs.watchmile.com",
+    "port" : 8883
+  },
+  "lidar" : {
+    "username" : "wlogs_kor_device_service",
+    "password" : "",
+    "host" : "mqtt.wlogs.watchmile.com",
+    "port" : 8883
+  }
+}
