@@ -30,6 +30,9 @@ import sensor_msgs
 import paho.mqtt.client as mq
 import json
 
+import base64
+from base64 import urlsafe_b64encode, urlsafe_b64decode
+
 ## --- MQTT to server --- ##
 from mqtt.WatchMileMQTT import WatchMileMQTT
 from mqtt.Login_MQTT import login_mqtt
@@ -134,6 +137,14 @@ def getMarkerWindow(x,y,z,r,g,b):
 
 	return myMarker
 
+def base64UrlEncode(data):
+    return urlsafe_b64encode(data).rstrip(b'=')
+ 
+ 
+def base64UrlDecode(base64Url):
+    padding = b'=' * (4 - (len(base64Url) % 4))
+ 
+    return urlsafe_b64decode(base64Url + padding)
 
 # liDAR data receiving class
 class rpScanReceiver():
@@ -192,19 +203,19 @@ class rpScanReceiver():
         imu_msg["z"] = imu.linear_acceleration.z
         
         
-        mqtt = mq.Client("mypub")
-
-        mqtt.connect("localhost", 1883)
-        imu_json = json.dumps(str(imu_msg))
+        #mqtt = mq.Client("mypub")
+        #mqtt.connect("localhost", 1883)
+        #imu_json = json.dumps(imu_msg)
         #print(json.loads(imu_json))
         #mqtt.publish("mqtt/imu",imu_json)
         
         #print("The imu message is published.")
         #mqtt.loop(2)
         
+        imu_list = []
         topic_class='lidar'
-        location = 'sktv1'
-        
+        location = 'skv1'
+        parkingFloor = 'b3'
         service_mqtt_client = mqtt_data_client(logins, topic_class)
 
         client_id = logins.clientID
@@ -212,12 +223,11 @@ class rpScanReceiver():
         ## publish topic : wlogs/device/service/wlogs:kor:wlogsORG:embedded-sg20:137fcf3c-70b7-4b81-835e-c64518dab3fc:1658890799.722915/lidar/sktv1/imu
         service_topic = "wlogs/device/service/" +client_id+ "/" + topic_class + "/" + location + "/imu" # /wlogs/device/service/{device_id}/{version}/api/{parkingLotId}/log
         print("@@@", service_topic)
-        service_mqtt_client.publish(
-                topic=service_topic,
-                msg=imu_json
-            )
+        #service_mqtt_client.subscribe(topic = service_topic + "/result")
+        imu_list.append(imu_msg)
+        service_mqtt_client.publish(service_topic, {"pkslog" : imu_list})
         time.sleep(1)
-        service_mqtt_client.subscribe(topic = service_topic + "/result")
+        
         ## --------------------- mqtt acc data send --------------------##
         
         #get acceleration data from livox horizon
@@ -248,8 +258,8 @@ class rpScanReceiver():
         cloud = ros_to_pcl(input_ros_msg)
         
         ## ---------------------------------- mqtt pcd send data ------------------------------------##
-        mqtt = mq.Client("mypub")
-        mqtt.connect("localhost", 1883) 
+        #mqtt = mq.Client("mypub")
+        #mqtt.connect("localhost", 1883) 
         #pcd_json = json.dumps(str(input_ros_msg))
         pcd_msg = {}
         pcd_header = {}
@@ -275,9 +285,29 @@ class rpScanReceiver():
         pcd_msg["bigendian"] = input_ros_msg.is_bigendian
         pcd_msg["point_step"] = input_ros_msg.point_step
         pcd_msg["row_step"] = input_ros_msg.row_step
-        pcd_msg["data"] = str(input_ros_msg.data)
+        pcd_msg["data"] = base64.b64encode(input_ros_msg.data).decode('ascii')
         pcd_msg["is_dense"] = input_ros_msg.is_dense
-        pcd_json = json.dumps(pcd_msg)
+        
+        #base64UrlEncode(base64.b64encode(input_ros_msg.data).decode('ascii').encode('utf-8')).decode('utf-8')
+        #pcd_list = []
+        #pcd_list.append(pcd_msg)
+        #f = open("newfile.txt", 'w')
+        #data = json.dumps(pcd_list)
+        #f.write(data)
+        #f.close()
+        
+        #print(type(input_ros_msg.data))
+        #print(type(base64.b64encode(input_ros_msg.data).decode('ascii')))
+        
+        #data = [0, 1, 0, 0, 83, 116, -10]
+        #dataStr = json.dumps(data)
+        #dataStr.encode('utf-8')
+        #base64EncodedStr = base64.b64encode(dataStr.encode('utf-8'))
+        #print(type(dataStr.encode('utf-8')))
+        #print(type(base64EncodedStr))
+        
+        
+        #pcd_json = json.dumps(pcd_msg)
         #print(pcd_json)
         #토픽에 메세지 발행
         #mqtt.publish("mqtt/pcd",pcd_json)
@@ -286,23 +316,31 @@ class rpScanReceiver():
         ## ---------------------------------- mqtt pcd send data ------------------------------------##
         
         ## ---------------------------------- mqtt pcd send to server ------------------------------------##
-        
+        pcd_list = []
         topic_class='lidar'
-        location = 'sktv1'
-        
+        location = 'skv1'
+        parkingFloor = 'b3'
         service_mqtt_client = mqtt_data_client(logins, topic_class)
 
         client_id = logins.clientID
 
         ## publish topic : wlogs/device/service/wlogs:kor:wlogsORG:embedded-sg20:137fcf3c-70b7-4b81-835e-c64518dab3fc:1658890685.927806/lidar/sktv1/pointcloud
         service_topic = "wlogs/device/service/" +client_id+ "/" + topic_class + "/" + location + "/pointcloud" # /wlogs/device/service/{device_id}/{version}/api/{parkingLotId}/log
-        print("@@@", service_topic)
-        service_mqtt_client.publish(
-                topic=service_topic,
-                msg=pcd_json
-            )
+        #print("@@@", service_topic)
+        #service_mqtt_client.publish(
+        #        topic=service_topic,
+        #        msg=pcd_json
+        #    )
+        #publish_pks_data(service_mqtt_client, service_topic, pcd_msg, parkingFloor)
+        pcd_list.append(pcd_msg)
+        #f = open("newfile.txt", 'w')
+        #data = json.dumps({"pkslog" : pcd_list})
+        #f.write(data)
+        #f.close()
+        service_mqtt_client.publish(service_topic, {"pkslog" : pcd_list})
         time.sleep(1)
-        service_mqtt_client.subscribe(topic = service_topic + "/result")
+        
+        #service_mqtt_client.subscribe(topic = service_topic + "/result")
 
         ## ---------------------------------- mqtt pcd send to server ------------------------------------##
         
@@ -418,8 +456,8 @@ class rpScanReceiver():
         flist = [flag_1, flag_2]
         for index in range(len(plist)):
             inout_msg[plist[index]] = flist[index]
-        inout_json = json.dumps(inout_msg)
-        mqtt.publish("mqtt/inout", inout_json)
+        #inout_json = json.dumps(inout_msg)
+        #mqtt.publish("mqtt/inout", inout_json)
         #mqtt.publish("mqtt/inout/park_1",flag_1)
         #mqtt.publish("mqtt/inout/park_2",flag_2)
         #print("The inout message is published.")
@@ -436,13 +474,23 @@ class rpScanReceiver():
         ## publish topic : wlogs/device/service/wlogs:kor:wlogsORG:embedded-sg20:137fcf3c-70b7-4b81-835e-c64518dab3fc:1658896328.073243/lidar/sktv1/inout
         service_topic = "wlogs/device/service/" +client_id+ "/" + topic_class + "/" + location + "/inout" # /wlogs/device/service/{device_id}/{version}/api/{parkingLotId}/log
         print("@@@", service_topic)
-        service_mqtt_client.publish(
-                topic=service_topic,
-                msg=inout_json
-            )
+        #service_mqtt_client.publish(
+        #        topic=service_topic,
+        #        msg=inout_json
+        #    )
+        #publish_pks_data(service_mqtt_client, service_topic, inout_msg, parkingFloor)
+        inout_list = []
+        #cp = check_token_is_expired(service_mqtt_client)
+        #service_mqtt_client.password = cp
+        #service_mqtt_client.stop()
+        #service_mqtt_client.setUser(pwd=cp)
+        #service_mqtt_client.start()
+        #start = time.time()
+        inout_list.append(inout_msg)
+        service_mqtt_client.publish(service_topic, {"pkslog" : inout_list})
         time.sleep(1)
-        service_mqtt_client.subscribe(topic = service_topic)
-        print()
+        #service_mqtt_client.subscribe(topic = service_topic)
+        #print()
         ## ---------------------------------- mqtt pcd send to server ------------------------------------##
         
         
