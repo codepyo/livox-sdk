@@ -263,18 +263,14 @@ class rpScanReceiver():
     def __init__(self):
         rospy.init_node('test', anonymous=True)
         
-        self.sub = rospy.Subscriber('/livox/lidar', PointCloud2, self.callback)
-        self.sub = rospy.Subscriber('/livox/imu', Imu, self.callbackImu)
+        self.sub = rospy.Subscriber('/velodyne_cloud_registered', PointCloud2, self.callback)
+        # self.sub = rospy.Subscriber('/livox/imu', Imu, self.callbackImu)
         
-        
-        # self.image_pub = rospy.Publisher("/imagetopic2",Image)
-        # self.bridge = CvBridge()
-        
-        #self.pub1 = rospy.Publisher('/marker1', Marker, queue_size=1)
-        #self .pub2 = rospy.Publisher('/marker2', Marker, queue_size=1)
-        
-        self.pub = rospy.Publisher("/out", PointCloud2, queue_size=1)
+        self.pub = rospy.Publisher("/out_map", PointCloud2, queue_size=1)
         self.pub2 = rospy.Publisher("/inout", String, queue_size=1)
+        # self.pub3 = rospy.Publisher("/temp", PointCloud2, queue_size=1)
+        
+        # self.voxel = opt.downsampling
         
         rospy.spin()
     
@@ -306,32 +302,6 @@ class rpScanReceiver():
 
         return indices, inliers, outliers
  
-    ## calculate theta to rotate data ##
-    def callbackImu(self, input_ros_msg):
-        global theta_y_trans
-        global theta_x_trans
-        imu = input_ros_msg
-        
-        #get acceleration data from livox horizon
-        x = -1 * imu.linear_acceleration.x 
-        y = -1 * imu.linear_acceleration.y
-        z = -1 * imu.linear_acceleration.z
-        
-        # acceleration's direction is opposite direction of gravity
-        # scalar of sum vector
-        g = math.sqrt(abs(x)*abs(x) + abs(y)*abs(y) + abs(z)*abs(z))
-
-        #angle vector g to axis
-        #theta_x = math.acos(x/g)
-        #theta_y = math.acos(y/g)
-        #theta_z = math.acos(z/g)
-
-        #theta rotate by y axis 
-        theta_y_trans = (theta_y_trans * 99 + math.acos(-z/math.sqrt(x*x + z*z))) / 100
-        #theta rotate by x axis
-        theta_x_trans = (theta_x_trans * 99 + -1 * math.acos(math.sqrt(x*x+z*z)/g)) / 100
-
-        #print("y_axis rotation : ", theta_y_trans * 57.29577951308232, " // x_axis rotation : ", theta_x_trans * 57.29577951308232)
         
     def callback(self, input_ros_msg):
         cloud = ros_to_pcl(input_ros_msg)
@@ -340,6 +310,7 @@ class rpScanReceiver():
         print("before downsampling:", cloud)
         LEAF_SIZE = 0.2
         cloud = self.do_voxel_grid_downssampling(cloud, LEAF_SIZE)
+        # cloud = self.do_voxel_grid_downssampling(cloud)
         print("after downsampling:", cloud)
         print("")
         
@@ -348,9 +319,9 @@ class rpScanReceiver():
         
         ##  -------------------------------------- Statistical Outlier Removal -------------------------------------------##
         
-        cloud = self.do_passthrough(cloud, 'x', 1.0, 200.0)
-        cloud = self.do_passthrough(cloud, 'y', -10.0, 20.0)
-        _, floor, cloud = self.do_ransac_plane_normal_segmentation(cloud, 0.07)
+        # cloud = self.do_passthrough(cloud, 'x', 1.0, 200.0)
+        # cloud = self.do_passthrough(cloud, 'y', -10.0, 20.0)
+        # _, floor, cloud = self.do_ransac_plane_normal_segmentation(cloud, 0.07)
         
         ##  -------------------------------------- Statistical Outlier Removal -------------------------------------------##
         
@@ -358,30 +329,8 @@ class rpScanReceiver():
         #cloud = floor
         cloud_arr = np.asarray(cloud)
         
-        
-        ##------------------------------------ rotate data -----------------------------------------------------##
-        #theta_y_trans : yaw
-        #theta_x_trans : pitch
-        global theta_y_trans
-        global theta_x_trans
-
-        ## yaw(y-axis) rotate
-        for point in range(cloud.size):
-            x = cloud_arr[point][0]
-            z = cloud_arr[point][2]
-
-            cloud_arr[point][0] = math.cos(theta_y_trans + theta_y_offset) * x + math.sin(theta_y_trans + theta_y_offset) * z
-            cloud_arr[point][2] = -1 * math.sin(theta_y_trans + theta_y_offset) * x + math.cos(theta_y_trans + theta_y_offset) * z
-        
-        ## pitch(x-axis) rotate
-        for point in range(cloud.size):
-            y = cloud_arr[point][1]
-            z = cloud_arr[point][2]
-            
-            cloud_arr[point][1] = (math.cos(theta_x_trans + theta_x_offset) * y) - (math.sin(theta_x_trans + theta_x_offset) * z)
-            cloud_arr[point][2] = (math.sin(theta_x_trans + theta_x_offset) * y) + (math.cos(theta_x_trans + theta_x_offset) * z)
-        ##------------------------------------ rotate data -----------------------------------------------------##
-        
+    
+        ## ------------------------------------ delete ceiling --------------------------------------------- ##
         
         
         ## -------------------------------------- process ----------------------------------------------------------##
@@ -404,63 +353,10 @@ class rpScanReceiver():
             #      cloud_arr[point][1] = 0
             #      cloud_arr[point][2] = 0
             
-            if z > 0.6:
+            if z > 0:
                 cloud_arr[point][0] = 0
                 cloud_arr[point][1] = 0
                 cloud_arr[point][2] = 0
-            
-            ## -------------------------------------- ceil removal -----------------------------------##
-            
-            if x > 6.5 and x < 7.7 and y > 1.3 and y < 5 and z > -1.2 and z < 0.4:
-                count_1 += 1
-            if x > 3.8 and x < 5.8 and y > 1.3 and y < 5 and z > -1.2 and z < 0.4:
-                count_2 += 1
-                
-        # print("min z!!!:", minz)
-        print(count_1)
-        print(count_2)    
-        if count_1 > 10:
-            print("1 is not empty")
-            flag_1 = False
-        else:
-            print("1 is empty!")
-            flag_1 = True
-        if count_2 > 10:
-            print("2 is not empty")
-            flag_2 = False
-            # self.pub1.publish(getMarkerWindow(5, 3.5, -1.4, 0,0,1))
-            # self.pub2.publish(getMarkerWindow(8, 4, -1.4, 0,0,1))
-        else:
-            print("2 is empty!")
-            flag_2 = True
-            # self.pub1.publish(getMarkerWindow(5, 3.5, -1.4, 1,0,0))
-            # self.pub2.publish(getMarkerWindow(8, 4, -1.4, 1,0,0))
-        
-        ## --------------------------------------------- process ----------------------------------------------##
-        
-        ## ------------------- inout publish to mqtt module --------------------- ##
-      
-        ##  --------------------------------------- floor removal  -------------------------##
-        
-        #pcl.save(cloud,"pcdex.pcd")
-        #test1 = o3d.io.read_point_cloud("pcdex.pcd")
-        #o3d.visualization.draw_geometries([test1])
-        
-        #cloud = self.do_passthrough(cloud, 'x', 1.0, 20.0)
-        #cloud = self.do_passthrough(cloud, 'y', -7.0, 5.5)
-        #_, floor, cloud = self.do_ransac_plane_normal_segmentation(cloud, 0.05)
-        
-        #pcl.save(cloud,"pcdex.pcd")
-        #test1 = o3d.io.read_point_cloud("pcdex.pcd")
-        #o3d.visualization.draw_geometries([test1])
-    
-        #pcl.save(floor,"livox_horizon_floor2.pcd")
-        #test1 = o3d.io.read_point_cloud("livox_horizon_floor2.pcd")
-        #o3d.visualization.draw_geometries([test1])
-        
-        # pcl.save(cloud,"livox_horizon.pcd")
-        # pcl.save(cloud,"lanedetection.pcd")
-        ##  --------------------------------------- floor removal  -------------------------##
         
         
         #numpy array를 ROS 메시지로 변경
@@ -468,8 +364,6 @@ class rpScanReceiver():
         tmp_msg = array_to_pointcloud2(cloud_arr, rospy.Time.now(), frame_id='output')
         self.pub.publish(tmp_msg)
         
-        
-
 #---------------------------main---------------------------------
 if __name__=="__main__":
     

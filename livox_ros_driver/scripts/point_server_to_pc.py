@@ -149,6 +149,11 @@ def base64UrlDecode(base64Url):
  
     return urlsafe_b64decode(base64Url + padding)
 
+def on_message(client, userdata, msg):  # The callback for when a PUBLISH message is received from the server.
+    print("Message received-> " + msg.topic + " " + str(msg.payload))
+    
+    
+    
 # liDAR data receiving class
 class rpScanReceiver():
     
@@ -161,7 +166,6 @@ class rpScanReceiver():
         self.pub1 = rospy.Publisher('/marker2', Marker, queue_size=1)
         self.pub2 = rospy.Publisher('/marker3', Marker, queue_size=1)
         self.pub = rospy.Publisher("/out3", PointCloud2, queue_size=1)
-        self.pub3 = rospy.Publisher("/temp", PointCloud2, queue_size=1)
         rospy.spin()
     
     
@@ -314,6 +318,48 @@ class rpScanReceiver():
             else:
                 point_dic5["point" + str(i)] = {"x" : data[0], "y" : data[1], "z" : data[2], "I" : data[3], "tag" : data[4], "line" : data[5]}
             i += 1
+    
+        #    point_list.append([data[0], data[1], data[2], data[3], data[4], data[5]])
+        
+        ## ----- zip data ----- ##
+        #data_length = len(input_ros_msg.data)
+        #print(data_length)
+        #zdata = zlib.compress(input_ros_msg.data, 9)
+        #print(len(zdata), type(zdata))
+        #pcd_msg["data"] = str(zdata)
+        
+        #pcd_msg["data"] = str(base64.b64encode(str(point_dic).encode('utf-8')))
+        
+        #pcd_msg["data"] = base64.b64encode(str(point_dic).encode('utf-8')).decode('ascii')
+        
+        #base64UrlEncode(base64.b64encode(input_ros_msg.data).decode('ascii').encode('utf-8')).decode('utf-8')
+        
+        #f = open("newfile.txt", 'w')
+        #data = json.dumps(pcd_list)
+        #data = str(point_dic)
+        #data = str(base64.b64decode(base64.b64encode(input_ros_msg.data)))
+        
+        #f.write(data)
+        #f.close()
+        
+        #print(type(input_ros_msg.data))
+        #print(type(base64.b64encode(input_ros_msg.data).decode('ascii')))
+        
+        #data = [0, 1, 0, 0, 83, 116, -10]
+        #dataStr = json.dumps(data)
+        #dataStr.encode('utf-8')
+        #base64EncodedStr = base64.b64encode(dataStr.encode('utf-8'))
+        #print(type(dataStr.encode('utf-8')))
+        #print(type(base64EncodedStr))
+        
+        
+        #pcd_json = json.dumps(pcd_msg)
+        #print(pcd_json)
+        #토픽에 메세지 발행
+        #mqtt.publish("mqtt/pcd",pcd_json)
+        #print("The pcd message is published.")
+        #mqtt.loop(2)
+        ## ---------------------------------- mqtt pcd send data ------------------------------------##
         
         ## ---------------------------------- mqtt pcd send to server ------------------------------------##
         
@@ -321,24 +367,31 @@ class rpScanReceiver():
         location = 'skv1'
         parkingFloor = 'b3'
         
+
         ## publish topic : wlogs/device/service/wlogs:kor:wlogsORG:embedded-sg20:137fcf3c-70b7-4b81-835e-c64518dab3fc:1658890685.927806/lidar/sktv1/pointcloud
         service_mqtt_client = mqtt_data_client(logins, topic_class)
         client_id = logins.clientID
         pcd_list = []
-        edata = str(point_dic1)
         #zdata = zlib.compress(str(point_dic1).encode('utf-8'), -1)
+        edata = str(point_dic1).encode('utf-8').hex()
         pcd_msg["data"] = str(edata)
         #pcd_msg["data"] = str(point_dic1)
         pcd_list.append(pcd_msg)
         service_topic = "wlogs/device/service/" +client_id+ "/" + topic_class + "/" + location + "/pointcloud/1" # /wlogs/device/service/{device_id}/{version}/api/{parkingLotId}/log
         service_mqtt_client.publish(service_topic, {"pksnum": 1, "pkstime" : time.strftime('%x %X'),"pkslog" : pcd_list})
         
+        #f = open("newfile.txt", 'w')
+        #data = str(zdata)
+        
+        #f.write(data)
+        #f.close()
+        
         service_mqtt_client = mqtt_data_client(logins, topic_class)
         client_id = logins.clientID
         pcd_list = []
         edata = str(point_dic2)
-        #zdata = zlib.compress(str(point_dic2).encode('utf-8'), -1)
-        pcd_msg["data"] = str(edata)
+        zdata = zlib.compress(str(point_dic2).encode('utf-8'), -1)
+        pcd_msg["data"] = str(zdata)
         #pcd_msg["data"] = str(point_dic2)
         pcd_list.append(pcd_msg)
         service_topic = "wlogs/device/service/" +client_id+ "/" + topic_class + "/" + location + "/pointcloud/2"
@@ -347,7 +400,7 @@ class rpScanReceiver():
         service_mqtt_client = mqtt_data_client(logins, topic_class)
         client_id = logins.clientID
         pcd_list = []
-        edata = str(point_dic3)
+        edata = str(point_dic3).encode('utf-8').hex()
         #zdata = zlib.compress(str(point_dic3).encode('utf-8'), -1)
         pcd_msg["data"] = str(edata)
         #pcd_msg["data"] = str(point_dic3)
@@ -358,7 +411,7 @@ class rpScanReceiver():
         service_mqtt_client = mqtt_data_client(logins, topic_class)
         client_id = logins.clientID
         pcd_list = []
-        edata = str(point_dic4)
+        edata = str(point_dic4).encode('utf-8').hex()
         #zdata = zlib.compress(str(point_dic4).encode('utf-8'), -1)
         pcd_msg["data"] = str(edata)
         #pcd_msg["data"] = str(point_dic4)
@@ -369,20 +422,58 @@ class rpScanReceiver():
         service_mqtt_client = mqtt_data_client(logins, topic_class)
         client_id = logins.clientID
         pcd_list = []
-        edata = str(point_dic5)
+        edata = str(point_dic1).encode('utf-8').hex()
         #zdata = zlib.compress(str(point_dic5).encode('utf-8'), -1)
         pcd_msg["data"] = str(edata)
+        #pcd_msg["data"] = str(11111111111111111)
         #pcd_msg["data"] = str(point_dic4)
         pcd_list.append(pcd_msg)
         service_topic = "wlogs/device/service/" +client_id+ "/" + topic_class + "/" + location + "/pointcloud/5"
         service_mqtt_client.publish(service_topic, {"pksnum": 5, "pkstime" : time.strftime('%x %X'),"pkslog" : pcd_list})
         
+        service_mqtt_client = mqtt_data_client(logins, topic_class)
+        client_id = logins.clientID
+        
+        #service_mqtt_client.subscribe(service_topic)
+        print("subscribing to %s" % (service_topic))
+        service_mqtt_client._paho_mqtt.on_message = on_message
+        # subscribe for a topic
+        tmp_submsg = service_mqtt_client._paho_mqtt.subscribe(service_topic, 0)
+        # just to remember that it works also as a subscriber
+        service_mqtt_client._isSubscriber = True
+        service_mqtt_client._topic = service_topic
+        #service_mqtt_client._paho_mqtt.loop_forever()
+        
+        
+        ## ---------------------------------- mqtt pcd send data ------------------------------------##
+        #mqtt = mq.Client("mypub")
+        #mqtt.connect("localhost", 1883) 
+        #pcd_json = json.dumps(str(input_ros_msg))
+        
+ 
+        #토픽에 메세지 발행
+        #mqtt.publish("mqtt/pcd",str(pcd_list))
+        #print("The pcd message is published.")
+        #mqtt.loop(2)
+        ## ---------------------------------- mqtt pcd send data ------------------------------------##
+        
+        
+        #print("@@@", service_topic)
+        #service_mqtt_client.publish(
+        #        topic=service_topic,
+        #        msg=pcd_json
+        #    )
+        #publish_pks_data(service_mqtt_client, service_topic, pcd_msg, parkingFloor)
+
         #f = open("newfile.txt", 'w')
-        #data = str(pcd_msg)
-        #
+        #data = json.dumps({"pkslog" : pcd_list})
         #f.write(data)
         #f.close()
         
+        #service_mqtt_client.publish(service_topic, {"pkslog" : pcd_list})
+        
+        #service_mqtt_client.subscribe(topic = service_topic + "/result")
+
         ## ---------------------------------- mqtt pcd send to server ------------------------------------##
         
         
@@ -446,59 +537,47 @@ class rpScanReceiver():
         ##------------------------------------ rotate data -----------------------------------------------------##
         
         
-        ## ------------------------------------ delete ceiling --------------------------------------------- ##
-        tmp_msg = array_to_pointcloud2(cloud_arr, rospy.Time.now(), frame_id='output')
-        cloud = ros_to_pcl(tmp_msg)
-        #cloud = self.do_passthrough(cloud, 'z', -1, 3)
-        after = np.asarray(cloud)
-        tmp_msg = array_to_pointcloud2(after, rospy.Time.now(), frame_id='output')
-        self.pub3.publish(tmp_msg)
-        ## ------------------------------------ delete ceiling --------------------------------------------- ##
-        
         ## --------------- process --------------------##
         count_1 = 0
         count_2 = 0
-        flag_1 = True
-        flag_2 = True
+        #cloud.from_array(cloud_arr)
+        for point in range(cloud.size):
+            x = cloud_arr[point][0]
+            y = cloud_arr[point][1]
+            z = cloud_arr[point][2]
+            
+            if z > 0:
+                 cloud_arr[point][0] = 0
+                 cloud_arr[point][1] = 0
+                 cloud_arr[point][2] = 0
+            
+            if x > 6.5 and x < 7.7 and y > 1.3 and y < 5 and z > -1.2 and z < 0.4:
+                count_1 += 1
+            if x > 3.8 and x < 5.8 and y > 1.3 and y < 5 and z > -1.2 and z < 0.4:
+                count_2 += 1
+        #print(count_1)
+        #print(count_2)
         
-        ##cloud.from_array(cloud_arr)
-        #for point in range(cloud.size):
-        #    x = cloud_arr[point][0]
-        #    y = cloud_arr[point][1]
-        #    z = cloud_arr[point][2]
-        #    
-        #    if z > 0:
-        #         cloud_arr[point][0] = 0
-        #         cloud_arr[point][1] = 0
-        #         cloud_arr[point][2] = 0
-        #    
-        #    if x > 6.5 and x < 7.7 and y > 1.3 and y < 5 and z > -1.2 and z < 0.4:
-        #        count_1 += 1
-        #    if x > 3.8 and x < 5.8 and y > 1.3 and y < 5 and z > -1.2 and z < 0.4:
-        #        count_2 += 1
-        ##print(count_1)
-        ##print(count_2)
-        #
-        #    
-        #if count_1 > 10:
-        #    #print("1 is not empty")
-        #    flag_1 = False
-        #else:
-        #    #print("1 is empty!")
-        #    flag_1 = True
-        #if count_2 > 10:
-        #    #print("2 is not empty")
-        #    flag_2 = False
-        #    self.pub1.publish(getMarkerWindow(5, 3.5, -1.4, 0,0,1))
-        #    # self.pub2.publish(getMarkerWindow(8, 4, -1.4, 0,0,1))
-        #else:
-        #    #print("2 is empty!")
-        #    flag_2 = True
-        #    self.pub1.publish(getMarkerWindow(5, 3.5, -1.4, 1,0,0))
-        #    # self.pub2.publish(getMarkerWindow(8, 4, -1.4, 1,0,0))
+            
+        if count_1 > 10:
+            #print("1 is not empty")
+            flag_1 = False
+        else:
+            #print("1 is empty!")
+            flag_1 = True
+        if count_2 > 10:
+            #print("2 is not empty")
+            flag_2 = False
+            self.pub1.publish(getMarkerWindow(5, 3.5, -1.4, 0,0,1))
+            # self.pub2.publish(getMarkerWindow(8, 4, -1.4, 0,0,1))
+        else:
+            #print("2 is empty!")
+            flag_2 = True
+            self.pub1.publish(getMarkerWindow(5, 3.5, -1.4, 1,0,0))
+            # self.pub2.publish(getMarkerWindow(8, 4, -1.4, 1,0,0))
         
         ## --------------- process --------------------##
-        print("1111111111")
+        
         ## ------------------- inout publish --------------------- ##
         mqtt = mq.Client("mypub")
 

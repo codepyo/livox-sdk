@@ -58,60 +58,60 @@ def do_ransac_plane_normal_segmentation(point_cloud, input_max_distance):
 
 
 #-----------------------------------------------------------------------------------
-test1 = o3d.io.read_point_cloud("lanedetection.pcd")
+test1 = o3d.io.read_point_cloud("image_pcd.ply")
 o3d.visualization.draw_geometries([test1])
 
 #-----------------------------------------------------------------------------------
 
-test1 = o3d.io.read_point_cloud("livox_horizon.pcd")
-o3d.visualization.draw_geometries([test1])
+# test1 = o3d.io.read_point_cloud("livox_horizon.pcd")
+# o3d.visualization.draw_geometries([test1])
 
-cloud = pcl.load("livox_horizon.pcd")
+# cloud = pcl.load("livox_horizon.pcd")
+# # for i in range(0, 20):#pc.size):
+# #     print ('x: ' + str(cloud[i][0]) + ', y : ' + str(cloud[i][1]) + ', z : ' + str(cloud[i][2]) + ' , rgb : ' + str(cloud[i][3]))
+
+# cloud = do_passthrough(cloud, 'x', 1.0, 20.0)
+# cloud = do_passthrough(cloud, 'y', -7.0, 5.5)
+# _, floor, cloud = do_ransac_plane_normal_segmentation(cloud, 0.05)
+
+# pcl.save(cloud,"livox_horizon_nofloor.pcd")
+# test1 = o3d.io.read_point_cloud("livox_horizon_nofloor.pcd")
+
+
+# # for i in range(0, 20):#pc.size):
+# #     print ('x: ' + str(cloud[i][0]) + ', y : ' + str(cloud[i][1]) + ', z : ' + str(cloud[i][2]) + ' , rgb :  : ' + str(cloud[i][3]))
+# o3d.visualization.draw_geometries([test1])
+
+# pcl.save(floor,"livox_horizon_floor.pcd")
+
+# # color_list=[]
+# # color_list = float_to_rgb(floor[3])
+
 # for i in range(0, 20):#pc.size):
-#     print ('x: ' + str(cloud[i][0]) + ', y : ' + str(cloud[i][1]) + ', z : ' + str(cloud[i][2]) + ' , rgb : ' + str(cloud[i][3]))
-
-cloud = do_passthrough(cloud, 'x', 1.0, 20.0)
-cloud = do_passthrough(cloud, 'y', -7.0, 5.5)
-_, floor, cloud = do_ransac_plane_normal_segmentation(cloud, 0.05)
-
-pcl.save(cloud,"livox_horizon_nofloor.pcd")
-test1 = o3d.io.read_point_cloud("livox_horizon_nofloor.pcd")
+#     print ('x: ' + str(floor[i][0]) + ', y : ' + str(floor[i][1]) + ', z : ' + str(floor[i][2]) )
 
 
-# for i in range(0, 20):#pc.size):
-#     print ('x: ' + str(cloud[i][0]) + ', y : ' + str(cloud[i][1]) + ', z : ' + str(cloud[i][2]) + ' , rgb :  : ' + str(cloud[i][3]))
-o3d.visualization.draw_geometries([test1])
-
-pcl.save(floor,"livox_horizon_floor.pcd")
-
-# color_list=[]
-# color_list = float_to_rgb(floor[3])
-
-for i in range(0, 20):#pc.size):
-    print ('x: ' + str(floor[i][0]) + ', y : ' + str(floor[i][1]) + ', z : ' + str(floor[i][2]) )
-
-
-# for i in range(floor.size):
-#     color_list.append(float_to_rgb(floor[3]))
+# # for i in range(floor.size):
+# #     color_list.append(float_to_rgb(floor[3]))
     
 
-# for i in range(0, 20):#pc.size):
-#     print ('r: ' + str(color_list[i][0]) + ', g : ' + str(color_list[i][1]) + ', b : ' + str(color_list[i][2]))
+# # for i in range(0, 20):#pc.size):
+# #     print ('r: ' + str(color_list[i][0]) + ', g : ' + str(color_list[i][1]) + ', b : ' + str(color_list[i][2]))
 
-test1 = o3d.io.read_point_cloud("livox_horizon_floor.pcd")
-o3d.visualization.draw_geometries([test1])
+# test1 = o3d.io.read_point_cloud("livox_horizon_floor.pcd")
+# o3d.visualization.draw_geometries([test1])
 
-# mesh = o3d.geometry.TriangleMesh.create_coordinate_frame()
-# mesh_r = copy.deepcopy(test1)
-# R = mesh.get_rotation_matrix_from_xyz((np.pi / 2, 0, np.pi / 4))
-# mesh_r.rotate(R, center=(0, 0, 0))
+# # mesh = o3d.geometry.TriangleMesh.create_coordinate_frame()
+# # mesh_r = copy.deepcopy(test1)
+# # R = mesh.get_rotation_matrix_from_xyz((np.pi / 2, 0, np.pi / 4))
+# # mesh_r.rotate(R, center=(0, 0, 0))
 
-# o3d.visualization.draw_geometries([mesh_r])
-#o3d.visualization.draw_geometries([test1, mesh_r])
+# # o3d.visualization.draw_geometries([mesh_r])
+# #o3d.visualization.draw_geometries([test1, mesh_r])
 
 
-# for i in range(len(pc.range())):
-#     sdefs
+# # for i in range(len(pc.range())):
+# #     sdefs
 
 
 def do_euclidean_clustering(white_cloud):
