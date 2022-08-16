@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-
-from email.headerregistry import AddressHeader
 from re import X
 from tkinter import Y
 import pcl
@@ -9,34 +7,28 @@ import pcl
 import numpy as np
 import open3d as o3d
 import struct
-import ctypes
 import rospy
-import rospkg
-import copy
 import cv2
-import matplotlib.image as mpimg
 from sensor_msgs.msg import PointCloud2, PointField
-from sensor_msgs.msg import Image
-from sensor_msgs.msg import CameraInfo
 from sensor_msgs import point_cloud2
 from sensor_msgs.msg import Imu
 from std_msgs.msg import String
 import sensor_msgs.point_cloud2 as pc2
 from std_msgs.msg import Header
-from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import Quaternion
+from visualization_msgs.msg import Marker
 from tf.transformations import quaternion_from_euler
-from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Point
 from random import randint
 import math
-import ros_numpy
-import sensor_msgs
 
 theta_y_trans = 1.57
 theta_x_trans = 0
 theta_y_offset = -0.025
-theta_x_offset = 0
+theta_x_offset = -0.04
+theta_z_offset = -0.02
+
+time1 = 0
+time2 = 0
 
 # The data structure of each point in ros PointCloud2: 16 bits = x + y + z + rgb
 FIELDS_XYZ = [
@@ -169,7 +161,7 @@ def array_to_pointcloud2(cloud_arr, stamp=None, frame_id=None):
 
         x = cloud_arr[i][0]
         y = cloud_arr[i][1]
-        z = cloud_arr[i][2] + 10
+        z = cloud_arr[i][2]
         
         pt = [x,y,z,0]
         r = 216
@@ -247,7 +239,7 @@ def getMarkerWindow(x,y,z,r,g,b):
 	myMarker.pose.orientation.x= q[0]
 	myMarker.pose.orientation.y= q[1]
 	myMarker.pose.orientation.z= q[2]
-	myMarker.pose.orientation.w= 1
+	myMarker.pose.orientation.w= 0
 	# myMarker.mesh_resource = "package://project/models/window_buena.stl"
 	myMarker.color.r, myMarker.color.g, myMarker.color.b , myMarker.color.a= r,g,b,1
 	myMarker.scale.x = 1.5
@@ -269,6 +261,10 @@ class rpScanReceiver():
         self.pub = rospy.Publisher("/out", PointCloud2, queue_size=1)
         self.pub2 = rospy.Publisher("/inout", String, queue_size=1)
         self.pub3 = rospy.Publisher("/temp", PointCloud2, queue_size=1)
+        self.pub1 = rospy.Publisher('/marker1', Marker, queue_size=1)
+        self.pub4 = rospy.Publisher('/marker2', Marker, queue_size=1)
+        
+        
         
         self.voxel = opt.downsampling
         
@@ -331,7 +327,8 @@ class rpScanReceiver():
         
     def callback(self, input_ros_msg):
         cloud = ros_to_pcl(input_ros_msg)
-        
+        global time1
+        global time2
         ##  --------------------------------------- downsampling  -----------------------------------------------------##
         print("before downsampling:", cloud)
         LEAF_SIZE = 0.2
@@ -345,9 +342,9 @@ class rpScanReceiver():
         
         ##  -------------------------------------- Statistical Outlier Removal -------------------------------------------##
         
-        cloud = self.do_passthrough(cloud, 'x', 1.0, 200.0)
-        cloud = self.do_passthrough(cloud, 'y', -10.0, 20.0)
-        _, floor, cloud = self.do_ransac_plane_normal_segmentation(cloud, 0.07)
+        cloud = self.do_passthrough(cloud, 'x', 0.0, 50.0)
+        cloud = self.do_passthrough(cloud, 'y', -15.0, 15.0)
+        _, floor, cloud = self.do_ransac_plane_normal_segmentation(cloud, 0.1)
         
         ##  -------------------------------------- Statistical Outlier Removal -------------------------------------------##
         
@@ -361,7 +358,8 @@ class rpScanReceiver():
         #theta_x_trans : pitch
         global theta_y_trans
         global theta_x_trans
-
+        global theta_z_offset
+        
         ## yaw(y-axis) rotate
         for point in range(cloud.size):
             x = cloud_arr[point][0]
@@ -377,16 +375,26 @@ class rpScanReceiver():
             
             cloud_arr[point][1] = (math.cos(theta_x_trans + theta_x_offset) * y) - (math.sin(theta_x_trans + theta_x_offset) * z)
             cloud_arr[point][2] = (math.sin(theta_x_trans + theta_x_offset) * y) + (math.cos(theta_x_trans + theta_x_offset) * z)
+            
+        for point in range(cloud.size):
+            x = cloud_arr[point][0]
+            y = cloud_arr[point][1]
+            
+            cloud_arr[point][0] = (math.cos(theta_z_offset) * x - math.sin(theta_z_offset) * y)
+            cloud_arr[point][1] = (math.sin(theta_z_offset) * x + math.cos(theta_z_offset) * y)
+            
+            
         ##------------------------------------ rotate data -----------------------------------------------------##
         
         
         ## ------------------------------------ delete ceiling --------------------------------------------- ##
-        tmp_msg = array_to_pointcloud2(cloud_arr, rospy.Time.now(), frame_id='output')
-        cloud = ros_to_pcl(tmp_msg)
-        #cloud = self.do_passthrough(cloud, 'z', -1, 3)
-        after = np.asarray(cloud)
-        tmp_msg = array_to_pointcloud2(after, rospy.Time.now(), frame_id='output')
-        self.pub3.publish(tmp_msg)
+        # tmp_msg = array_to_pointcloud2(cloud_arr, rospy.Time.now(), frame_id='output')
+        # cloud = ros_to_pcl(tmp_msg)
+        # cloud = self.do_passthrough(cloud, 'z', -3.0, -0.8)
+        # print(cloud)
+        # after = np.asarray(cloud)
+        # tmp_msg = array_to_pointcloud2(after, rospy.Time.now(), frame_id='output')
+        # self.pub3.publish(tmp_msg)
         ## ------------------------------------ delete ceiling --------------------------------------------- ##
         
         
@@ -417,30 +425,42 @@ class rpScanReceiver():
             
             ## -------------------------------------- ceil removal -----------------------------------##
             
-            if x > 6.5 and x < 7.7 and y > 1.3 and y < 5 and z > -1.2 and z < 0.4:
+            if x > 16.5 and x < 18.5 and y > -15 and y < -11 and z > -3.5:
                 count_1 += 1
-            if x > 3.8 and x < 5.8 and y > 1.3 and y < 5 and z > -1.2 and z < 0.4:
+            if x > 31.5 and x < 33.5 and y > 0 and y < 5 and z > -3.5:
                 count_2 += 1
                 
         # print("min z!!!:", minz)
         print(count_1)
         print(count_2)    
-        if count_1 > 10:
+        
+        
+        if count_1 > 5:
+            self.pub1.publish(getMarkerWindow(17.3, -13.5, -3.5, 0,0,1))
             print("1 is not empty")
             flag_1 = False
-        else:
+            time1 = 0
+        elif time1 > 2:
+            self.pub1.publish(getMarkerWindow(17.3, -13.5, -3.5, 1,0,0))
             print("1 is empty!")
             flag_1 = True
-        if count_2 > 10:
+            time1 = 0
+        else:
+            time1 += 1
+            
+            
+        if count_2 > 5:
             print("2 is not empty")
             flag_2 = False
-            #self.pub1.publish(getMarkerWindow(5, 3.5, -1.4, 0,0,1))
-            #self.pub2.publish(getMarkerWindow(8, 4, -1.4, 0,0,1))
-        else:
+            self.pub4.publish(getMarkerWindow(32.5, 2.25, -3.5, 0,0,1))
+            time2 = 0
+        elif time2 > 2:
             print("2 is empty!")
             flag_2 = True
-            #self.pub1.publish(getMarkerWindow(5, 3.5, -1.4, 1,0,0))
-            #self.pub2.publish(getMarkerWindow(8, 4, -1.4, 1,0,0))
+            self.pub4.publish(getMarkerWindow(32.5, 2.25, -3.5, 1,0,0))
+            time2 = 0
+        else:
+            time2 += 1
         
         ## --------------------------------------------- process ----------------------------------------------##
         
@@ -482,162 +502,6 @@ class rpScanReceiver():
         tmp_msg = array_to_pointcloud2(cloud_arr, rospy.Time.now(), frame_id='output')
         self.pub.publish(tmp_msg)
         
-        ##  --------------------------------------- point cloud2 publish  -------------------------##
-        
-        # img_position, img_color = convert_imgTo_pcd(img)
-         
-        # ros_cloud = convertCloudFromOpen3dToRos(pcd_load)
-        # ros_cloud = convertCloudFromOpen3dToRos(pcd_load)        
-        # ros_cloud = sheet_array_to_pointcloud2(img_position, img_color)
-        ##  --------------------------------------- map data publish  -------------------------##
-        
-        distort = 0
-        
-        # img1 = mpimg.imread('parkpic61.jpg')
-        # img1 = cv2.resize(img1,(256,256))
-        # pcd_load1 = convert_imgTo_pcd(img1)
-        # ros_cloud1 = sheet_array_to_pointcloud2(pcd_load1,0,0)
-        # self.image_pub1.publish(ros_cloud1)
-        
-        # img2 = mpimg.imread('parkpic62.jpg')
-        # img2 = cv2.resize(img2,(256,256))
-        # pcd_load2 = convert_imgTo_pcd(img2)
-        # ros_cloud2 = sheet_array_to_pointcloud2(pcd_load2,200,0)
-        # self.image_pub2.publish(ros_cloud2)
-        
-        # img3 = mpimg.imread('parkpic63.jpg')
-        # img3 = cv2.resize(img3,(256,256))
-        # pcd_load3 = convert_imgTo_pcd(img3)
-        # ros_cloud3 = sheet_array_to_pointcloud2(pcd_load3,400,0)
-        # self.image_pub3.publish(ros_cloud3)
-        
-        # img4 = mpimg.imread('parkpic64.jpg')
-        # img4 = cv2.resize(img4,(256,256))
-        # pcd_load4 = convert_imgTo_pcd(img4)
-        # ros_cloud4 = sheet_array_to_pointcloud2(pcd_load4,0,200)
-        # self.image_pub4.publish(ros_cloud4)
-        
-        # img5 = mpimg.imread('parkpic65.jpg')
-        # img5 = cv2.resize(img5,(256,256))
-        # pcd_load5 = convert_imgTo_pcd(img5)
-        # ros_cloud5 = sheet_array_to_pointcloud2(pcd_load5,200,200)
-        # self.image_pub5.publish(ros_cloud5)
-        
-        # img6 = mpimg.imread('parkpic66.jpg')
-        # img6 = cv2.resize(img6,(256,256))
-        # pcd_load6 = convert_imgTo_pcd(img6)
-        # ros_cloud6 = sheet_array_to_pointcloud2(pcd_load6,400,200)
-        # self.image_pub6.publish(ros_cloud6)
-        
-        # img7 = mpimg.imread('parkpic67.jpg')
-        # img7 = cv2.resize(img7,(256,256))
-        # pcd_load7 = convert_imgTo_pcd(img7)
-        # ros_cloud7 = sheet_array_to_pointcloud2(pcd_load7,0,400)
-        # self.image_pub7.publish(ros_cloud7)
-        
-        # img8 = mpimg.imread('parkpic68.jpg')
-        # img8 = cv2.resize(img8,(256,256))
-        # pcd_load8 = convert_imgTo_pcd(img8)
-        # ros_cloud8 = sheet_array_to_pointcloud2(pcd_load8,200,400)
-        # self.image_pub8.publish(ros_cloud8)
-        
-        # img9 = mpimg.imread('parkpic69.jpg')
-        # img9 = cv2.resize(img9,(256,256))
-        # pcd_load9 = convert_imgTo_pcd(img9)
-        # ros_cloud9 = sheet_array_to_pointcloud2(pcd_load9,400,400)
-        # self.image_pub9.publish(ros_cloud9)
-
-
-        # cv_image = cv2.imread('parkpic5.jpg')
-        # img_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding = 'passthrough')
-        # img_msg.header.frame_id = "output"
-        
-        # self.image_pub.publish(img_msg)
-
-# class imageReceiver():
-    
-#     def __init__(self):
-#         rospy.init_node('test2', anonymous=True)
-        
-#         # self.sub = rospy.Subscriber('/livox/lidar', PointCloud2, self.callback)
-#         # self.sub = rospy.Subscriber('/livox/imu', Imu, self.callbackImu)
-        
-        
-#         # # self.image_pub = rospy.Publisher("/imagetopic2",Image)
-#         # # self.bridge = CvBridge()
-        
-#         # # self.pub1 = rospy.Publisher('/marker1', Marker, queue_size=1)
-#         # # self.pub2 = rospy.Publisher('/marker2', Marker, queue_size=1)
-        
-#         # self.pub = rospy.Publisher("/out", PointCloud2, queue_size=1)
-#         self.image_pub1 = rospy.Publisher("/picout1", PointCloud2, queue_size=1)
-#         self.image_pub2 = rospy.Publisher("/picout2", PointCloud2, queue_size=1)
-#         self.image_pub3 = rospy.Publisher("/picout3", PointCloud2, queue_size=1)
-#         self.image_pub4 = rospy.Publisher("/picout4", PointCloud2, queue_size=1)
-#         self.image_pub5 = rospy.Publisher("/picout5", PointCloud2, queue_size=1)
-#         self.image_pub6 = rospy.Publisher("/picout6", PointCloud2, queue_size=1)
-#         self.image_pub7 = rospy.Publisher("/picout7", PointCloud2, queue_size=1)
-#         self.image_pub8 = rospy.Publisher("/picout8", PointCloud2, queue_size=1)
-#         self.image_pub9 = rospy.Publisher("/picout9", PointCloud2, queue_size=1)
-#         rospy.spin()
-        
-#         self.callback()
-    
-#     def callback(self):
-        
-#         img1 = mpimg.imread('parkpic61.jpg')
-#         img1 = cv2.resize(img1,(256,256))
-#         pcd_load1 = convert_imgTo_pcd(img1)
-#         ros_cloud1 = sheet_array_to_pointcloud2(pcd_load1,0,0)
-#         self.image_pub1.publish(ros_cloud1)
-        
-#         img2 = mpimg.imread('parkpic62.jpg')
-#         img2 = cv2.resize(img2,(256,256))
-#         pcd_load2 = convert_imgTo_pcd(img2)
-#         ros_cloud2 = sheet_array_to_pointcloud2(pcd_load2,200,0)
-#         self.image_pub2.publish(ros_cloud2)
-        
-#         img3 = mpimg.imread('parkpic63.jpg')
-#         img3 = cv2.resize(img3,(256,256))
-#         pcd_load3 = convert_imgTo_pcd(img3)
-#         ros_cloud3 = sheet_array_to_pointcloud2(pcd_load3,400,0)
-#         self.image_pub3.publish(ros_cloud3)
-        
-#         img4 = mpimg.imread('parkpic64.jpg')
-#         img4 = cv2.resize(img4,(256,256))
-#         pcd_load4 = convert_imgTo_pcd(img4)
-#         ros_cloud4 = sheet_array_to_pointcloud2(pcd_load4,0,200)
-#         self.image_pub4.publish(ros_cloud4)
-        
-#         img5 = mpimg.imread('parkpic65.jpg')
-#         img5 = cv2.resize(img5,(256,256))
-#         pcd_load5 = convert_imgTo_pcd(img5)
-#         ros_cloud5 = sheet_array_to_pointcloud2(pcd_load5,200,200)
-#         self.image_pub5.publish(ros_cloud5)
-        
-#         img6 = mpimg.imread('parkpic66.jpg')
-#         img6 = cv2.resize(img6,(256,256))
-#         pcd_load6 = convert_imgTo_pcd(img6)
-#         ros_cloud6 = sheet_array_to_pointcloud2(pcd_load6,400,200)
-#         self.image_pub6.publish(ros_cloud6)
-        
-#         img7 = mpimg.imread('parkpic67.jpg')
-#         img7 = cv2.resize(img7,(256,256))
-#         pcd_load7 = convert_imgTo_pcd(img7)
-#         ros_cloud7 = sheet_array_to_pointcloud2(pcd_load7,0,400)
-#         self.image_pub7.publish(ros_cloud7)
-        
-#         img8 = mpimg.imread('parkpic68.jpg')
-#         img8 = cv2.resize(img8,(256,256))
-#         pcd_load8 = convert_imgTo_pcd(img8)
-#         ros_cloud8 = sheet_array_to_pointcloud2(pcd_load8,200,400)
-#         self.image_pub8.publish(ros_cloud8)
-        
-#         img9 = mpimg.imread('parkpic69.jpg')
-#         img9 = cv2.resize(img9,(256,256))
-#         pcd_load9 = convert_imgTo_pcd(img9)
-#         ros_cloud9 = sheet_array_to_pointcloud2(pcd_load9,400,400)
-#         self.image_pub9.publish(ros_cloud9)
 
 #---------------------------main---------------------------------
 if __name__=="__main__":
